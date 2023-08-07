@@ -11,12 +11,6 @@ pragma solidity ^0.8.0;
  * specified in the House struct.
  */
 contract ERCVC1 {
-    // Address of the Village Council.
-    address public council;
-
-    // The fee for building a house (in wei).
-    uint256 public buildingFee;
-
     // Struct representing a House within the Village.
     struct House {
         string houseName; // The name of the house (Optional).
@@ -36,27 +30,6 @@ contract ERCVC1 {
     // Array of all houses in the village.
     House[] public allHouses;
 
-    // Constructor to initialize the building fee.
-    constructor(uint256 _buildingFee) {
-        council = msg.sender;
-        buildingFee = _buildingFee;
-    }
-
-    // Modifier to allow only the current council to call a function.
-    modifier onlyCouncil() {
-        require(msg.sender == council, "Only the council can call this function");
-        _;
-    }
-
-    /**
-     * @notice Allows the current council to change the council address.
-     * @param _newCouncil The address of the new council.
-     */
-    function changeCouncil(address _newCouncil) public onlyCouncil {
-        require(_newCouncil != address(0), "New council address cannot be zero");
-        council = _newCouncil;
-    }
-
     /**
      * @notice Allows a user to build a new house.
      * @param houseName The name of the house (Optional).
@@ -67,12 +40,17 @@ contract ERCVC1 {
         string memory houseName,
         string memory publicKey,
         string memory privateKeyEncrypted
-    ) public payable {
-        require(msg.value == buildingFee, "Incorrect building fee sent");
+    ) public {
         // Transfer the fee to the council's address.
-        payable(council).transfer(msg.value);
         uint256 houseNumber = allHouses.length + 1;
-        House memory newHouse = House(houseName, houseNumber, msg.sender, publicKey, privateKeyEncrypted, block.number);
+        House memory newHouse = House(
+            houseName,
+            houseNumber,
+            msg.sender,
+            publicKey,
+            privateKeyEncrypted,
+            block.number
+        );
         houses[msg.sender].push(newHouse);
         allHouses.push(newHouse);
         emit HouseBuilt(msg.sender);
@@ -112,5 +90,4 @@ contract ERCVC1 {
     function getAllHousesLength() public view returns (uint256) {
         return allHouses.length;
     }
-
 }
