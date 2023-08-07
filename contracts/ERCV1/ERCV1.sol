@@ -11,18 +11,19 @@ pragma solidity ^0.8.0;
  * specified in the House struct.
  */
 contract ERCVC1 {
+    // Address of the Village Council.
+    address public council;
 
-    /**
-     * @notice Represents a House within the Village.
-     * @dev The private key is encrypted with AES256 and decrypted through a three-step process:
-     * 1. Sign the public key using the owner address's private key.
-     * 2. Hash the signature using keccak256.
-     * 3. Enter the hashed signature into AES256 to decrypt the private key.
-     */
+    // The fee for building a house (in wei).
+    uint256 public buildingFee;
+
+    // Struct representing a House within the Village.
     struct House {
+        string houseName; // The name of the house (Optional).
+        uint256 houseNumber; // The house number in the village.
         address owner; // Address of the house owner.
-        string publicKey; // Public key for the house.
-        string privateKeyEncrypted; // Private key encrypted with AES256.
+        string publicKey; // Public 4096 bytes RSA key for the house. Public Key Mechanism: Signed by the owner's private ethereum key, then the Signature is Keccak256 hashed to recieve AES256 secret key of privateKeyEncrypted.
+        string privateKeyEncrypted; // Corresponding Private 4096 bytes RSA key encrypted with AES256 - decrypted with the secret key from the public key mechanism.
         uint256 blockNumber; // Block number when the house was created or modified.
     }
 
@@ -35,16 +36,43 @@ contract ERCVC1 {
     // Array of all houses in the village.
     House[] public allHouses;
 
+    // Constructor to initialize the building fee.
+    constructor(uint256 _buildingFee) {
+        council = msg.sender;
+        buildingFee = _buildingFee;
+    }
+
+    // Modifier to allow only the current council to call a function.
+    modifier onlyCouncil() {
+        require(msg.sender == council, "Only the council can call this function");
+        _;
+    }
+
+    /**
+     * @notice Allows the current council to change the council address.
+     * @param _newCouncil The address of the new council.
+     */
+    function changeCouncil(address _newCouncil) public onlyCouncil {
+        require(_newCouncil != address(0), "New council address cannot be zero");
+        council = _newCouncil;
+    }
+
     /**
      * @notice Allows a user to build a new house.
+     * @param houseName The name of the house (Optional).
      * @param publicKey The public key associated with the house.
      * @param privateKeyEncrypted The private key encrypted using AES256.
      */
     function buildHouse(
+        string memory houseName,
         string memory publicKey,
         string memory privateKeyEncrypted
-    ) public {
-        House memory newHouse = House(msg.sender, publicKey, privateKeyEncrypted, block.number);
+    ) public payable {
+        require(msg.value == buildingFee, "Incorrect building fee sent");
+        // Transfer the fee to the council's address.
+        payable(council).transfer(msg.value);
+        uint256 houseNumber = allHouses.length + 1;
+        House memory newHouse = House(houseName, houseNumber, msg.sender, publicKey, privateKeyEncrypted, block.number);
         houses[msg.sender].push(newHouse);
         allHouses.push(newHouse);
         emit HouseBuilt(msg.sender);
