@@ -1,79 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
 import "../@openzeppelin/contracts/access/Ownable.sol";
 
-
 /**
- * @title ERC-KMS1 - Ethereum Key Management Service Version 1
- * @notice ERC-KMS1 is a contract standard made by 'Null Technologies Ltd' that manages cryptographic keys.
- * Each key is associated with cryptographic properties, and owners can create keys.
- * @dev This contract allows users to create and manage virtual "keys."
- * Each key is associated with an encrypted private key and a public key.
- * The private key of each key is encrypted using AES256.
+ * @title ERCKMS1 - Ethereum RSA Cryptographic Key Management System
+ * @dev A contract for managing cryptographic keys using RSA encryption.
  */
-contract ERCKMS1 is Ownable { // Changed the name to reflect Key Management Service
+contract ERCKMS1 is Ownable {
 
-    uint256 public _fee;
+    uint256 public _fee; // The fee required to add a new key
 
-    // Fee and management
     constructor(uint256 _initialFee, address _owner) {
         _fee = _initialFee;
         transferOwnership(_owner);
     }
 
+    /**
+     * @dev Sets a new fee required for adding a new key.
+     * @param newFee The new fee value.
+     */
     function setFee(uint256 newFee) public onlyOwner {
         _fee = newFee;
     }
 
+    /**
+     * @dev Collects accumulated fees and transfers them to the contract owner.
+     */
     function collectFees() public onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No balance to collect");
         payable(owner()).transfer(balance);
     }
 
-    // Struct representing a Key within the KeyRing.
     struct Key {
-        string keyName; // The name of the key.
-        uint256 keyNumber; // The key number in the address's keyring.
-        address owner; // Address of the key owner.
-        bytes publicRSAKey; // Public RSA key for the key.
-        bytes privateRSAKeyEncrypted; // Corresponding Private RSA key encrypted with AES256.
-        uint256 blockNumber; // Block number when the key was created or modified.
+        address owner;
+        bytes publicRSAKey;
+        bytes privateRSAKeyEncrypted;
+        bytes16 iv; 
+        uint256 blockNumber;
     }
 
-    // Event emitted when a new key is made.
-    event KeyMade(address indexed user);
+    event KeyMade(address indexed user); // Event emitted when a new key is made
 
-    // Mapping from an address to an array of keys owned by that address - their keyring.
-    mapping(address => Key[]) public keyRing;
+    mapping(address => Key[]) public keys; // Mapping to store keys for each user
 
-    // Array of all keys.
-    Key[] public allKeys;
+    Key[] public allKeys; // Array to store all keys added to the system
 
     /**
-     * @notice Allows a user to create a new key. Keyring keys are append only.
-     * @param keyName The name of the key (Optional).
-     * @param publicRSAKey The public key associated with the key.
-     * @param privateRSAKeyEncrypted The private key encrypted using AES256.
+     * @dev Adds a new key to the system.
+     * @param publicRSAKey The public RSA key.
+     * @param privateRSAKeyEncrypted The encrypted private RSA key.
+     * @param iv The initialization vector for encryption.
      */
-    function craftKey(
-        string memory keyName,
+    function addKey(
         bytes memory publicRSAKey,
-        bytes memory privateRSAKeyEncrypted
-    ) public payable  {
-        require(msg.value >= _fee, "Fee not met");
-        uint256 keyNumber = allKeys.length + 1;
+        bytes memory privateRSAKeyEncrypted,
+        bytes16 iv 
+    ) public payable {
+        require(msg.value == _fee, "Exact fee not met");
         Key memory newKey = Key(
-            keyName,
-            keyNumber,
             msg.sender,
             publicRSAKey,
             privateRSAKeyEncrypted,
+            iv, 
             block.number
         );
-        keyRing[msg.sender].push(newKey);
+        keys[msg.sender].push(newKey);
         allKeys.push(newKey);
         emit KeyMade(msg.sender);
     }
@@ -84,8 +77,8 @@ contract ERCKMS1 is Ownable { // Changed the name to reflect Key Management Serv
      * @return Key The most recent key for the given address.
      */
     function getCurrentKey(address _address) public view returns (Key memory) {
-        require(keyRing[_address].length > 0, "No keys found for the address");
-        return keyRing[_address][keyRing[_address].length - 1];
+        require(keys[_address].length > 0, "No keys found for the address");
+        return keys[_address][keys[_address].length - 1];
     }
 
     /**
@@ -93,8 +86,8 @@ contract ERCKMS1 is Ownable { // Changed the name to reflect Key Management Serv
      * @param _address The address whose keys are to be retrieved.
      * @return Key[] An array containing all the keys for the given address.
      */
-    function getKeyRing(address _address) public view returns (Key[] memory) {
-        return keyRing[_address];
+    function getKeys(address _address) public view returns (Key[] memory) {
+        return keys[_address];
     }
 
     /**
@@ -113,17 +106,29 @@ contract ERCKMS1 is Ownable { // Changed the name to reflect Key Management Serv
         return allKeys.length;
     }
 
+    /**
+     * @notice Retrieves the number of keys for the given address.
+     * @param _address The address whose keys count is to be retrieved.
+     * @return uint256 The number of keys for the given address.
+     */
+    function getUserKeysLength(address _address) public view returns (uint256) {
+        return keys[_address].length;
+    }
+
+    /**
+     * @dev Provides instructions for encrypting and decrypting the privateRSAKeyEncrypted.
+     * @return Explanation of the encryption and decryption process.
+     */    
     function getDecryptionInstructions() public pure returns (string memory) {
         return (
-            "The 'privateRSAKeyEncrypted' of each key is encrypted using AES256, a symmetric encryption algorithm. "
-            "This means the same secret key is used for both encryption and decryption. "
-            "The decryption process for 'privateRSAKeyEncrypted' is as follows: "
-            "1) The 'owner' of the key signs the 'publicRSAKey' using their private Ethereum key. "
-            "2) The entire signature is then hashed using the Keccak256 algorithm, a cryptographic hash function used in Ethereum. "
-            "3) The resulting hash serves as the AES256 secret key for decrypting the 'privateRSAKeyEncrypted'. "
-            "This process ensures that only the 'owner' with the correct private key can derive the AES256 secret key and decrypt the 'privateRSAKeyEncrypted'. "
-            "Since AES256 uses a fixed key size of 256 bits, the derived secret key must fit this size. "
-            "The AES256 algorithm is standardized, so this process will work with any correct implementation of AES256."
+            "ENCRYPTION PROCESS:\n"
+            "1) Key Pair Generation [bytes]: A public-private key pair is generated using the RSASSA-PKCS1-v1_5 algorithm. A 4096-bit modulus and a public exponent of [1, 0, 1] are used, and the hash algorithm is SHA-256.\n"
+            "2) Signature Creation [bytes]: The owner of the key creates a signature by signing the public RSA key (bytes) with their private Ethereum key (bytes).\n"
+            "3) Signature Hashing [bytes]: The signature (bytes) is hashed with the SHA-256 algorithm, resulting in a fixed-size hash value (bytes).\n"
+            "4) Encryption of Private Key [bytes]: Using the hashed signature (bytes) as a secret key, the private RSA key (bytes) is encrypted with AES-256. AES in Cipher Block Chaining (CBC) mode is used, and a random initialization vector (IV) [bytes16] is generated to ensure unique encryption.\n"
+            "5) Decryption of Private Key [bytes]: To decrypt the encrypted private key (bytes), the owner recreates the hash by signing the public RSA key (bytes) and hashing it with SHA-256 again. The encrypted private key (bytes) and the IV (bytes16) are then decrypted using the hashed signature (bytes) and AES-CBC.\n"
+            "This process ensures that only the owner, with the correct private Ethereum key (bytes), can derive the secret key needed for decryption. Standardized algorithms are used, enabling compatibility with various implementations."
         );
     }
+
 }

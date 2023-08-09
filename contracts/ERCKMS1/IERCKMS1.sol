@@ -4,23 +4,11 @@ pragma solidity ^0.8.0;
 interface IERCKMS1 {
     function setFee(uint256 newFee) external;
     function collectFees() external;
-    function craftKey(
-        string memory keyName,
-        bytes memory publicRSAKey,
-        bytes memory privateRSAKeyEncrypted
-    ) external payable;
-    function getCurrentKey(address _address) external view returns (IERCKMS1.Key memory);
-    function getKeyRing(address _address) external view returns (IERCKMS1.Key[] memory);
-    function getAllKeys() external view returns (IERCKMS1.Key[] memory);
+    function addKey(bytes calldata publicRSAKey, bytes calldata privateRSAKeyEncrypted, bytes16 iv) external payable;
+    function getCurrentKey(address _address) external view returns (address owner, bytes memory publicRSAKey, bytes memory privateRSAKeyEncrypted, bytes16 iv, uint256 blockNumber);
+    function getKeys(address _address) external view returns (address[] memory owners, bytes[] memory publicRSAKeys, bytes[] memory privateRSAKeyEncrypted, bytes16[] memory ivs, uint256[] memory blockNumbers);
+    function getAllKeys() external view returns (address[] memory owners, bytes[] memory publicRSAKeys, bytes[] memory privateRSAKeyEncrypted, bytes16[] memory ivs, uint256[] memory blockNumbers);
     function getAllKeysLength() external view returns (uint256);
+    function getUserKeysLength(address _address) external view returns (uint256);
     function getDecryptionInstructions() external pure returns (string memory);
-
-    struct Key {
-        string keyName;
-        uint256 keyNumber;
-        address owner;
-        bytes publicRSAKey;
-        bytes privateRSAKeyEncrypted;
-        uint256 blockNumber;
-    }
 }
