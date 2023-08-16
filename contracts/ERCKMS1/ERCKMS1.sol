@@ -1,41 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../@openzeppelin/contracts/access/Ownable.sol";
-
-/**
- * @title ERCKMS1 - Ethereum RSA Cryptographic Key Management System
- * @dev A contract for managing cryptographic keys using RSA encryption. It allows for the addition, retrieval, and management of RSA keys tied to Ethereum addresses. It also enables the contract owner to set a fee for adding keys and collect accumulated fees.
- */
-contract ERCKMS1 is Ownable {
-    uint256 public _fee; // Fee required to add a new key
-
-    /**
-     * @dev Initializes the contract with an initial fee and transfers ownership to the provided address.
-     * @param _initialFee The initial fee required to add a new key.
-     * @param _owner The address to which ownership of the contract will be transferred.
-     */
-    constructor(uint256 _initialFee, address _owner) {
-        _fee = _initialFee;
-        transferOwnership(_owner);
-    }
-
-    /**
-     * @dev Allows the owner to set a new fee for adding keys.
-     * @param newFee The new fee amount.
-     */
-    function setFee(uint256 newFee) public onlyOwner {
-        _fee = newFee;
-    }
-
-    /**
-     * @dev Allows the owner to withdraw the balance accumulated from the fees.
-     */
-    function collectFees() public onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No balance to collect");
-        payable(owner()).transfer(balance);
-    }
+contract ERCKMS1 {
 
     // Struct representing a cryptographic key.
     struct Key {
@@ -44,35 +10,29 @@ contract ERCKMS1 is Ownable {
         string encryptedPrivateKeyBase64;
         string ivBase64;
         uint256 blockNumber;
+        uint256 timestamp;
     }
 
-    event KeyMade(address indexed user); // Event emitted when a new key is made.
-
+    event KeyMade(address indexed user, uint totalKeys); // Event emitted when a new key is made.
     mapping(address => Key[]) public keys; // Mapping of Ethereum addresses to their keys.
-    Key[] public allKeys; // Array of all keys.
+    uint256 public totalKeys; // Total number of keys in the contract.
 
-    /**
-     * @dev Allows users to add a new key by paying the required fee.
-     * @param publicKeyBase64 The public key in Base64.
-     * @param encryptedPrivateKeyBase64 The encrypted private key in Base64.
-     * @param ivBase64 The initialization vector in Base64.
-     */
     function addKey(
         string memory publicKeyBase64,
         string memory encryptedPrivateKeyBase64,
         string memory ivBase64
-    ) public payable {
-        require(msg.value == _fee, "Exact fee not met");
+    ) internal {
         Key memory newKey = Key(
             msg.sender,
             publicKeyBase64,
             encryptedPrivateKeyBase64,
             ivBase64,
-            block.number
+            block.number,
+            block.timestamp
         );
         keys[msg.sender].push(newKey);
-        allKeys.push(newKey);
-        emit KeyMade(msg.sender);
+        totalKeys+=1;
+        emit KeyMade(msg.sender, totalKeys);
     }
 
     /**
@@ -101,22 +61,6 @@ contract ERCKMS1 is Ownable {
      */
     function getKeys(address _address) public view returns (Key[] memory) {
         return keys[_address];
-    }
-
-    /**
-     * @dev Returns all keys managed by the contract.
-     * @return An array of all keys.
-     */
-    function getAllKeys() public view returns (Key[] memory) {
-        return allKeys;
-    }
-
-    /**
-     * @dev Returns the total number of keys managed by the contract.
-     * @return The total number of keys.
-     */
-    function getAllKeysLength() public view returns (uint256) {
-        return allKeys.length;
     }
 
     /**
