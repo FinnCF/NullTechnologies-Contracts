@@ -2,13 +2,12 @@
 pragma solidity ^0.8.0;
 
 contract ERCKMS1 {
-
     // Struct representing a cryptographic key.
     struct Key {
         address owner;
-        string publicKeyBase64;
-        string encryptedPrivateKeyBase64;
-        string ivBase64;
+        bytes publicRSAKey;
+        bytes encryptedPrivateRSAKey;
+        bytes iv;
         uint256 blockNumber;
         uint256 timestamp;
     }
@@ -18,20 +17,20 @@ contract ERCKMS1 {
     uint256 public totalKeys; // Total number of keys in the contract.
 
     function addKey(
-        string memory publicKeyBase64,
-        string memory encryptedPrivateKeyBase64,
-        string memory ivBase64
+        bytes memory publicRSAKey,
+        bytes memory encryptedPrivateRSAKey,
+        bytes memory iv
     ) internal {
         Key memory newKey = Key(
             msg.sender,
-            publicKeyBase64,
-            encryptedPrivateKeyBase64,
-            ivBase64,
+            publicRSAKey,
+            encryptedPrivateRSAKey,
+            iv,
             block.number,
             block.timestamp
         );
         keys[msg.sender].push(newKey);
-        totalKeys+=1;
+        totalKeys += 1;
         emit KeyMade(msg.sender, totalKeys);
     }
 
@@ -66,7 +65,7 @@ contract ERCKMS1 {
     /**
      * @dev Provides instructions for encrypting and decrypting the encryptedPrivateKey.
      * @return Explanation of the encryption and decryption process.
-     */    
+     */
     function getDecryptionInstructions() public pure returns (string memory) {
         return (
             "ENCRYPTION PROCESS:\n"

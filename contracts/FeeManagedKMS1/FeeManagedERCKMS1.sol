@@ -23,11 +23,11 @@ contract FeeManagedERCKMS1 is Ownable, ERCKMS1 {
     }
 
     function addKeyWithFee(
-        string memory publicKeyBase64,
-        string memory encryptedPrivateKeyBase64,
-        string memory ivBase64
+        bytes memory publicRSAKey,
+        bytes memory encryptedPrivateRSAKey,
+        bytes memory iv
     ) public payable {
         require(msg.value == fee, "Exact fee not met");
-        addKey(publicKeyBase64, encryptedPrivateKeyBase64, ivBase64);
+        addKey(publicRSAKey, encryptedPrivateRSAKey, iv);
     } 
 }
