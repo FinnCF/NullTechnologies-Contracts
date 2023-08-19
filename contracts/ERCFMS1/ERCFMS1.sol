@@ -5,12 +5,15 @@ contract ERCFMS1 {
     
     struct File {
         bytes encryptedData;
+        bytes encryptedName;
+        bytes encryptedFolder; // Added the folder field
+        bytes encryptedKind;
         bytes encryptedAESKey;
         bytes iv;
+        bytes contentHash;
         uint256 blockNumber;
         uint256 timestamp;
-        string contentHash;
-        address[] sentTo; // Addresses to which the file was sent
+        address[] sentTo;
     }
 
     mapping(address => File[]) public userFiles;
@@ -25,17 +28,23 @@ contract ERCFMS1 {
 
     function addFile(
         bytes memory encryptedData,
+        bytes memory encryptedName,
+        bytes memory encryptedFolder,  // Added the folder parameter
+        bytes memory encryptedKind,
         bytes memory encryptedAESKey,
         bytes memory iv,
         bytes memory contentHash
     ) public {
         File memory newFile = File(
             encryptedData,
+            encryptedName,
+            encryptedFolder,  // Added the folder field here
+            encryptedKind,
             encryptedAESKey,
             iv,
+            contentHash,
             block.number,
             block.timestamp,
-            contentHash,
             new address[](0)
         );
         userFiles[msg.sender].push(newFile);
@@ -46,6 +55,9 @@ contract ERCFMS1 {
         address receiver,
         uint fileIndex,
         bytes memory encryptedData,
+        bytes memory encryptedName,
+        bytes memory encryptedFolder, // Added the folder parameter
+        bytes memory encryptedKind,
         bytes memory encryptedAESKey,
         bytes memory iv
     ) public {
@@ -57,11 +69,14 @@ contract ERCFMS1 {
         originalFile.sentTo.push(receiver);
         File memory sentFile = File(
             encryptedData,
+            encryptedName,
+            encryptedFolder,  // Added the folder field here
+            encryptedKind,
             encryptedAESKey,
             iv,
+            originalFile.contentHash,
             block.number,
             block.timestamp,
-            originalFile.contentHashBase64,
             new address[](0)
         );
         receivedFiles[receiver].push(sentFile);
@@ -72,9 +87,7 @@ contract ERCFMS1 {
         return userFiles[user].length;
     }
 
-    function getUserFiles(
-        address user
-    ) public view returns (File[] memory) {
+    function getUserFiles(address user) public view returns (File[] memory) {
         return userFiles[user];
     }
 
@@ -82,9 +95,7 @@ contract ERCFMS1 {
         return receivedFiles[user].length;
     }
 
-    function getReceivedFiles(
-        address user
-    ) public view returns (File[] memory) {
+    function getReceivedFiles(address user) public view returns (File[] memory) {
         return receivedFiles[user];
     }
 }
