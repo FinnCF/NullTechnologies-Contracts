@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract IsnessKeyV1 {
+contract IsnessKeysV1 {
     // Struct representing a cryptographic key.
     struct Key {
         address owner;
