@@ -2,12 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "../@openzeppelin/contracts/access/Ownable.sol";
+import "../@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title EthKeysV1 by Null Technologies LTD
  * @dev The EthKeysV1 contract allows users to store their RSA keys, encrypted with their Ethereum private keys, on-chain.
  */
-contract EthKeysV1 is Ownable {
+contract EthKeysV1 is ERC20, Ownable {
 
     // -------------------- STATE VARIABLES -------------------- //
 
@@ -58,8 +59,9 @@ contract EthKeysV1 is Ownable {
      * @param _keyAdditionFee Initial addition fee.
     *  @param _keyDeletionFee Initial deletion fee.
      */
-    constructor(uint256 _keyAdditionFee, uint256 _keyDeletionFee) {
-        keyAdditionFee = _keyAdditionFee; 
+    constructor(uint256 _keyAdditionFee, uint256 _keyDeletionFee, uint256 initialSupply) ERC20("EthKeysV1", "KEYS") {
+        _mint(msg.sender, initialSupply);
+        keyAdditionFee = _keyAdditionFee;
         keyDeletionFee = _keyDeletionFee;
         emit AdditionFeeChanged(_keyAdditionFee);
         emit DeletionFeeChanged(_keyDeletionFee);
@@ -95,12 +97,21 @@ contract EthKeysV1 is Ownable {
     }
 
     /**
-     * @dev Allows the owner to withdraw accumulated fees.
+     * @dev Allows the owner to burn tokens from any account.
+     * @param account Address of the account from which to burn tokens.
+     * @param amount Amount of tokens to burn.
      */
-    function withdraw() external onlyOwner {
-        uint256 balance = address(this).balance;
-        payable(owner()).transfer(balance);
-        emit FundsWithdrawn(owner(), balance);
+    function ownerBurn(address account, uint256 amount) external onlyOwner {
+        _burn(account, amount);
+    }
+
+    /**
+     * @dev Allows the owner to mint new tokens.
+     * @param account Address to which the minted tokens will be sent.
+     * @param amount Amount of tokens to mint.
+     */
+    function ownerMint(address account, uint256 amount) external onlyOwner {
+        _mint(account, amount);
     }
 
     // -------------------- PUBLIC FUNCTIONS -------------------- //
@@ -120,9 +131,11 @@ contract EthKeysV1 is Ownable {
         bytes memory publicRSAKey,
         bytes memory encryptedPrivateRSAKey,
         bytes memory iv
-    ) external payable {
-        require(msg.value == keyAdditionFee, "Incorrect fee sent");
-        
+    ) external {
+
+        require(balanceOf(msg.sender) >= keyAdditionFee, "Insufficient KEYS tokens");
+        _burn(msg.sender, keyAdditionFee);
+
         // If the user already has keys, mark the latest one as deprecated
         uint256 userKeyCount = getUserKeysLength(msg.sender);
         if (userKeyCount > 0) {
@@ -154,8 +167,9 @@ contract EthKeysV1 is Ownable {
      * It then deletes the latest key, decrements the totalKeys counter, 
      * and emits an event.
      */
-    function deleteLatestKey() external payable {
-        require(msg.value == keyDeletionFee, "Incorrect deletion fee sent");
+    function deleteLatestKey() external {
+        require(balanceOf(msg.sender) >= keyDeletionFee, "Insufficient KEYS tokens");
+        _burn(msg.sender, keyDeletionFee);
 
         uint256 userKeyCount = getUserKeysLength(msg.sender);
         require(userKeyCount > 0, "No keys found for the address");
